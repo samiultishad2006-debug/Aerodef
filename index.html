@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AERODEF – Drone Detection & Airspace Defence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#E8EEF2; --ink:#14212B; --steel:#55656F; --panel:#0F1C26;
+  --safe:#1FA37A; --med:#E0A800; --high:#E8450C; --line:#C5D1D9; --white:#F8FBFC;
+}
+*{box-sizing:border-box;margin:0}
+body{font-family:Barlow,system-ui,sans-serif;background:var(--sky);color:var(--ink);line-height:1.55;font-size:17px}
+h1,h2,h3{font-family:"Barlow Condensed",Impact,sans-serif;line-height:1.05;letter-spacing:.01em}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--high);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header{border-bottom:1px solid var(--line)}
+header .wrap{display:flex;justify-content:space-between;align-items:center;height:60px}
+.logo{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;letter-spacing:.06em;text-decoration:none}
+nav a{margin-left:22px;text-decoration:none;color:var(--steel);font-weight:500}
+nav a:hover{color:var(--ink)}
+
+.hero{padding:44px 0 56px}
+.hero h1{font-size:clamp(40px,6vw,72px);max-width:14ch;margin-bottom:14px}
+.hero p.lead{max-width:56ch;color:var(--steel);margin-bottom:28px}
+.dash{display:grid;grid-template-columns:1.7fr 1fr;gap:18px}
+.radar-box{background:var(--panel);border-radius:6px;padding:14px;position:relative}
+canvas{display:block;width:100%;height:auto}
+.side{display:flex;flex-direction:column;gap:18px}
+.card{background:var(--white);border:1px solid var(--line);border-radius:6px;padding:16px}
+.status{border-left:10px solid var(--safe);transition:border-color .2s}
+.status.MEDIUM{border-color:var(--med)} .status.HIGH{border-color:var(--high)}
+.status h2{font-size:40px}
+.status.SAFE h2{color:var(--safe)} .status.MEDIUM h2{color:#9A7500} .status.HIGH h2{color:var(--high)}
+.nums{display:flex;gap:24px;margin-top:6px;color:var(--steel)}
+.nums b{display:block;font-size:26px;color:var(--ink);font-family:"Barlow Condensed",sans-serif}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+button{font:inherit;font-weight:500;padding:10px 16px;border:2px solid var(--ink);background:var(--ink);color:var(--white);border-radius:4px;cursor:pointer}
+button.alt{background:transparent;color:var(--ink)}
+button:hover{opacity:.85}
+#msg{margin-top:10px;font-size:15px;color:var(--steel);min-height:1.5em}
+.graph-card canvas{margin-top:8px}
+.log-card{margin-top:18px}
+#log{list-style:none;padding:0;max-height:150px;overflow:auto;font-size:15px}
+#log li{padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:12px}
+#log .t{color:var(--steel);min-width:80px}
+#log .HIGH{color:var(--high);font-weight:500} #log .MEDIUM{color:#9A7500;font-weight:500}
+
+section{padding:56px 0;border-top:1px solid var(--line)}
+section h2{font-size:clamp(30px,4vw,44px);margin-bottom:10px}
+section p.sub{color:var(--steel);max-width:60ch;margin-bottom:28px}
+.features{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.f{background:var(--white);border:1px solid var(--line);border-radius:6px;padding:16px}
+.f h3{font-size:22px;margin-bottom:6px}
+.f p{font-size:15px;color:var(--steel)}
+.tag{display:inline-block;margin-top:10px;font-size:13px;font-weight:500;padding:2px 8px;border-radius:3px;background:#D5EEE5;color:#0C6B4D}
+.tag.plan{background:#E3E8EC;color:var(--steel)}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;counter-reset:s}
+.flow div{padding:16px;border-top:4px solid var(--ink);background:var(--white);border-right:1px solid var(--line)}
+.flow div:last-child{border-right:0;border-top-color:var(--high)}
+.flow b{font-family:"Barlow Condensed",sans-serif;font-size:24px;display:block}
+.flow span{font-size:15px;color:var(--steel)}
+footer{padding:28px 0;color:var(--steel);font-size:15px;border-top:1px solid var(--line)}
+
+@media(max-width:820px){
+  .dash{grid-template-columns:1fr}
+  .flow{grid-template-columns:1fr}
+  .flow div{border-right:0;border-bottom:1px solid var(--line)}
+  nav a{margin-left:14px}
+}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="logo" href="#top">AERODEF</a>
+  <nav><a href="#dashboard">Live radar</a><a href="#features">Features</a><a href="#how">How it works</a></nav>
+</div></header>
+
+<main id="top">
+<div class="wrap hero" id="dashboard">
+  <h1>See what is flying over what you protect.</h1>
+  <p class="lead">AERODEF detects unidentified objects in monitored airspace, tracks where they go, rates the threat, and alerts the team. This page shows the prototype live from an Arduino radar.</p>
+
+  <div class="dash">
+    <div class="radar-box">
+      <canvas id="radar" width="720" height="400" aria-label="Live radar screen"></canvas>
+    </div>
+    <div class="side">
+      <div class="card status SAFE" id="status" aria-live="polite">
+        <div>Threat level</div>
+        <h2 id="level">SAFE</h2>
+        <div class="nums">
+          <div><b id="dist">–</b>distance</div>
+          <div><b id="ang">–</b>angle</div>
+        </div>
+      </div>
+      <div class="card graph-card">
+        <div>Distance over time</div>
+        <canvas id="graph" width="400" height="150" aria-label="Distance graph"></canvas>
+      </div>
+      <div class="card">
+        <div class="btns">
+          <button id="connect">Connect Arduino</button>
+          <button id="demo" class="alt">Start demo</button>
+        </div>
+        <div id="msg">Not connected. Use Demo to see how it looks without hardware.</div>
+        <div id="raw" style="margin-top:6px;font-size:13px;color:var(--steel)">Data received: nothing yet</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card log-card">
+    <b>Alert log</b>
+    <ul id="log"><li><span class="t">–</span><span>No alerts yet.</span></li></ul>
+  </div>
+</div>
+
+<section id="features"><div class="wrap">
+  <h2>What AERODEF does</h2>
+  <p class="sub">Ten functions. The green tag marks what the Arduino prototype already does.</p>
+  <div class="features" id="fgrid"></div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <h2>How it works</h2>
+  <p class="sub">Every detection follows the same path, from first signal to alert.</p>
+  <div class="flow">
+    <div><b>Detect</b><span>Sensors notice something in the monitored area.</span></div>
+    <div><b>Identify</b><span>AI and camera decide what it is.</span></div>
+    <div><b>Track</b><span>Position, direction and distance are followed.</span></div>
+    <div><b>Assess</b><span>The system rates how risky it is.</span></div>
+    <div><b>Alert</b><span>The security team is told right away.</span></div>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="wrap">AERODEF is a detection and monitoring project. It does not jam or disable drones.</div></footer>
+
+<script>
+// ---------- Settings (Arduino code-er sathe mil rakho) ----------
+const MAX = 150, HIGH = 50, MED = 100;
+
+// ---------- Feature cards ----------
+const FEATURES = [
+  ["Drone detection","Finds unknown objects inside the monitored area.",1],
+  ["RF signal monitoring","Listens for drone control signals on the radio spectrum.",0],
+  ["AI drone identification","Tells drones apart from birds and aircraft.",0],
+  ["Airspace surveillance","Scans the surrounding sky all the time.",1],
+  ["Drone tracking","Follows direction, distance and movement.",1],
+  ["Threat assessment","Rates each object Safe, Medium or High.",1],
+  ["Optical recognition","Confirms targets with camera and computer vision.",0],
+  ["Counter-drone research","Studies protective measures. Research only.",0],
+  ["Real-time alerts","Lights, buzzer and log entries the moment a threat appears.",1],
+  ["Security monitoring","Protects sensitive places such as airports and power plants.",1]
+];
+document.getElementById("fgrid").innerHTML = FEATURES.map(f =>
+  `<div class="f"><h3>${f[0]}</h3><p>${f[1]}</p><span class="tag ${f[2]?"":"plan"}">${f[2]?"In prototype":"Planned"}</span></div>`).join("");
+
+// ---------- State ----------
+let angle = 90, dist = MAX, lastLevel = "SAFE";
+const distAt = new Array(181).fill(MAX);
+const hist = [];
+const levelOf = d => d < HIGH ? "HIGH" : d < MED ? "MEDIUM" : "SAFE";
+const $ = id => document.getElementById(id);
+
+function update(a, d) {
+  angle = a; dist = d;
+  if (a >= 0 && a <= 180) distAt[a] = d;
+  hist.push(d); if (hist.length > 150) hist.shift();
+  const l = levelOf(d);
+  $("level").textContent = l;
+  $("status").className = "card status " + l;
+  $("dist").textContent = d >= MAX ? "none" : d + " cm";
+  $("ang").textContent = a + "°";
+  if (l !== lastLevel) { if (l !== "SAFE") addLog(l, a, d); lastLevel = l; }
+}
+
+function addLog(l, a, d) {
+  const ul = $("log");
+  if (ul.children.length === 1 && ul.firstChild.textContent.includes("No alerts")) ul.innerHTML = "";
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="t">${new Date().toLocaleTimeString()}</span><span class="${l}">${l}: object at ${d} cm, angle ${a}°</span>`;
+  ul.prepend(li);
+}
+
+// ---------- Radar drawing ----------
+const rc = $("radar"), rx = rc.getContext("2d");
+const colorOf = d => d < HIGH ? "#E8450C" : d < MED ? "#E0A800" : "#7FD6B5";
+
+function drawRadar() {
+  const W = rc.width, H = rc.height, cx = W / 2, cy = H - 30, R = H - 50;
+  rx.clearRect(0, 0, W, H);
+  rx.strokeStyle = "#2E4A5C"; rx.fillStyle = "#7C98A8"; rx.lineWidth = 1; rx.font = "13px Barlow, sans-serif";
+  for (let i = 1; i <= 3; i++) {
+    rx.beginPath(); rx.arc(cx, cy, R * i / 3, Math.PI, 2 * Math.PI); rx.stroke();
+    rx.fillText(Math.round(MAX * i / 3) + " cm", cx + R * i / 3 - 40, cy + 18);
+  }
+  for (let a = 0; a <= 180; a += 30) {
+    const r = a * Math.PI / 180;
+    rx.beginPath(); rx.moveTo(cx, cy); rx.lineTo(cx + R * Math.cos(r), cy - R * Math.sin(r)); rx.stroke();
+  }
+  for (let a = 0; a <= 180; a++) {
+    const d = distAt[a];
+    if (d < MAX) {
+      const r = a * Math.PI / 180, rr = d / MAX * R;
+      rx.fillStyle = colorOf(d);
+      rx.beginPath(); rx.arc(cx + rr * Math.cos(r), cy - rr * Math.sin(r), 5, 0, 7); rx.fill();
+    }
+  }
+  const s = angle * Math.PI / 180;
+  rx.strokeStyle = "#7FD6B5"; rx.lineWidth = 3;
+  rx.beginPath(); rx.moveTo(cx, cy); rx.lineTo(cx + R * Math.cos(s), cy - R * Math.sin(s)); rx.stroke();
+  requestAnimationFrame(drawRadar);
+}
+
+// ---------- Graph drawing ----------
+const gc = $("graph"), gx = gc.getContext("2d");
+function drawGraph() {
+  const W = gc.width, H = gc.height;
+  gx.clearRect(0, 0, W, H);
+  [[HIGH, "#E8450C"], [MED, "#E0A800"]].forEach(([v, c]) => {
+    const y = H - v / MAX * H;
+    gx.strokeStyle = c; gx.setLineDash([5, 4]); gx.lineWidth = 1;
+    gx.beginPath(); gx.moveTo(0, y); gx.lineTo(W, y); gx.stroke();
+  });
+  gx.setLineDash([]); gx.strokeStyle = "#14212B"; gx.lineWidth = 2; gx.beginPath();
+  hist.forEach((d, i) => {
+    const x = i / 150 * W, y = H - d / MAX * H;
+    i ? gx.lineTo(x, y) : gx.moveTo(x, y);
+  });
+  gx.stroke();
+  requestAnimationFrame(drawGraph);
+}
+
+// ---------- Real Arduino (Web Serial) ----------
+let port = null, reader = null, running = false, bytes = 0;
+
+async function connect() {
+  if (window.top !== window.self) { $("msg").textContent = "This page is inside a preview frame, which blocks USB. Download index.html and open it directly in Chrome or Edge."; return; }
+  if (!("serial" in navigator)) { $("msg").textContent = "This browser has no Web Serial. Open the page in Chrome or Edge on a computer."; return; }
+  try {
+    stopDemo();
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    $("msg").textContent = "Connected. Move your hand in front of the sensor.";
+    $("connect").textContent = "Disconnect";
+    running = true; bytes = 0;
+    setTimeout(() => { if (running && bytes === 0) $("msg").textContent = "Connected, but no data yet. Check: Arduino code has WEB_MODE 1, Serial Monitor is closed, baud is 9600."; }, 4000);
+    const dec = new TextDecoderStream();
+    port.readable.pipeTo(dec.writable).catch(() => {});
+    reader = dec.readable.getReader();
+    let buf = "";
+    while (running) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      bytes += value.length;
+      $("raw").textContent = "Data received: " + bytes + " bytes. Last: " + buf.slice(-24);
+      const parts = buf.split(".");
+      buf = parts.pop();
+      for (const p of parts) {
+        const [a, d] = p.trim().split(",").map(Number);
+        if (Number.isFinite(a) && Number.isFinite(d)) update(a, d);
+      }
+    }
+  } catch (e) {
+    $("msg").textContent = "Could not connect: " + e.message + ". Close Arduino IDE and Processing, then try again.";
+  }
+  await disconnect(true);
+}
+
+async function disconnect(quiet) {
+  running = false;
+  try { if (reader) await reader.cancel(); } catch (e) {}
+  try { if (port) await port.close(); } catch (e) {}
+  port = null; reader = null;
+  $("connect").textContent = "Connect Arduino";
+  if (!quiet) $("msg").textContent = "Disconnected.";
+}
+
+$("connect").addEventListener("click", () => port ? disconnect() : connect());
+
+// ---------- Demo mode ----------
+let demoTimer = null, demoA = 15, demoDir = 1, t0 = 0;
+function startDemo() {
+  if (port) return;
+  t0 = Date.now(); distAt.fill(MAX);
+  demoTimer = setInterval(() => {
+    demoA += demoDir; if (demoA >= 165 || demoA <= 15) demoDir *= -1;
+    const t = (Date.now() - t0) / 1000;
+    const objA = 100 + 35 * Math.sin(t / 3), objD = 75 + 50 * Math.sin(t / 2.2);
+    let d = MAX - 1 + 1;
+    const off = Math.abs(demoA - objA);
+    if (off < 14) d = Math.max(10, Math.round(objD + off * 2));
+    update(demoA, Math.min(d, MAX));
+  }, 30);
+  $("demo").textContent = "Stop demo";
+  $("msg").textContent = "Demo running with a simulated object.";
+}
+function stopDemo() {
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+  $("demo").textContent = "Start demo";
+}
+$("demo").addEventListener("click", () => {
+  if (demoTimer) { stopDemo(); $("msg").textContent = "Demo stopped."; } else startDemo();
+});
+
+drawRadar(); drawGraph();
+</script>
+</body>
+</html>
